@@ -1,126 +1,387 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Scientific Name Italiciser</title>
-
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Scientific Name & Act Italiciser — Review & Fixed</title>
 <style>
-    body {
-        font-family: sans-serif;
-        background: #f5f5f5;
-        padding: 20px;
-    }
-    h1 {
-        text-align: centre;
-    }
-    #dropzone {
-        width: 100%;
-        padding: 60px;
-        border: 3px dashed #555;
-        border-radius: 12px;
-        background: #fff;
-        text-align: centre;
-        colour: #333;
-        font-size: 1.2rem;
-        cursor: pointer;
-    }
-    #output {
-        margin-top: 30px;
-    }
-    .file-item {
-        background: #fff;
-        padding: 10px;
-        margin: 8px 0;
-        border-radius: 8px;
-        box-shadow: 0 1px 3px rgba(0,0,0,.1);
-    }
-    button {
-        padding: 8px 14px;
-        border: none;
-        background: #0066cc;
-        colour: #fff;
-        border-radius: 6px;
-        cursor: pointer;
-    }
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:#f7f7f7; padding:20px;}
+  h1{margin:0 0 12px 0}
+  #dropzone{border:3px dashed #888;border-radius:10px;background:#fff;padding:36px;text-align:center;cursor:pointer}
+  #dropzone.drag{background:#eef}
+  .controls{display:flex;gap:8px;margin-top:12px;align-items:center}
+  textarea{width:100%;height:80px;padding:8px;border-radius:6px;border:1px solid #ccc}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+  .file-item{background:#fff;padding:10px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-top:10px}
+  .btn{padding:8px 12px;border-radius:6px;border:0;background:#0b79d0;color:white;cursor:pointer}
+  .btn.ghost{background:#eee;color:#222}
+  .preview-area{margin-top:12px;background:#fff;padding:12px;border-radius:6px;height:300px;overflow:auto;border:1px solid #eee}
+  .match{background: #fffeba; padding:0 2px; border-radius:2px}
+  .meta{font-size:0.9rem;color:#555;margin-bottom:6px}
+  .option-row{display:flex;gap:12px;align-items:center;margin-top:8px}
 </style>
 </head>
-
 <body>
+  <h1>Italiciser — Scientific Names + Acts (preview before save)</h1>
 
-<h1>Scientific Name Italiciser</h1>
+  <div id="dropzone">Drag & drop HTML files here — or click to choose files</div>
+  <input id="fileInput" type="file" accept=".html,.htm" multiple style="display:none">
 
-<div id="dropzone">
-    Drag & drop HTML files here<br>
-    or click to select files
-</div>
+  <div class="row" style="margin-top:12px">
+    <div>
+      <label><strong>Whitelist (one per line — force match)</strong></label>
+      <textarea id="whitelist" placeholder="Eucalyptus globulus"></textarea>
+    </div>
+    <div>
+      <label><strong>Blacklist / Exclude (one per line)</strong></label>
+      <textarea id="blacklist" placeholder="State Council&#10;Department"></textarea>
+    </div>
+  </div>
 
-<input type="file" id="fileInput" accept=".html,.htm" multiple style="display:none">
+  <div class="controls">
+    <label><input id="allowLinks" type="checkbox"> Allow replacements inside &lt;a&gt; links</label>
+    <label style="margin-left:12px"><input id="alsoActs" type="checkbox"> Also italicise Acts / legislation</label>
+    <div style="flex:1"></div>
+    <button id="clearList" class="btn ghost">Clear list</button>
+  </div>
 
-<div id="output"></div>
+  <div style="margin-top:8px">
+    <small class="meta">Preview each proposed replacement; use Accept / Reject to control which edits are applied. Use the Acts toggle if you want legislation wrapped as well.</small>
+  </div>
+
+  <div id="files" style="margin-top:12px"></div>
+
+  <div id="previewModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);align-items:center;justify-content:center;">
+    <div style="width:90%;max-width:1100px;background:#fff;border-radius:8px;padding:14px;max-height:90vh;overflow:auto;">
+      <div style="display:flex;gap:8px;align-items:center">
+        <h3 id="modalTitle" style="margin:0;flex:1">Preview</h3>
+        <button id="downloadAccepted" class="btn">Download accepted</button>
+        <button id="acceptAllAndDownload" class="btn">Accept all & download</button>
+        <button id="rejectAll" class="btn ghost">Close without changes</button>
+      </div>
+      <p id="modalMeta" class="meta"></p>
+      <div id="previewArea" class="preview-area"></div>
+      <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end">
+        <button id="prevMatch" class="btn ghost">Previous</button>
+        <button id="nextMatch" class="btn ghost">Next</button>
+        <button id="acceptMatch" class="btn">Accept match</button>
+        <button id="rejectMatch" class="btn ghost">Reject match</button>
+      </div>
+    </div>
+  </div>
 
 <script>
-// VERY simple scientific-name matcher:
-// Capitalised word + lowercase word
-const sciNameRegex = /\b([A-Z][a-z]+)\s([a-z]{3,})\b/g;
+/*
+ Adds Act/legislation detection to the existing preview+accept workflow.
 
-// Drop zone setup
-const dropzone = document.getElementById("dropzone");
-const fileInput = document.getElementById("fileInput");
-dropzone.addEventListener("click", () => fileInput.click());
+ Patterns:
+ - Scientific names: Genus species (and optional subsp./var./f.)
+ - Acts: up to N capitalised words immediately before 'Act' + optional year (4 digits)
+   Example matches:
+     - "Biosecurity Act 2015"
+     - "Environmental Protection Act 1994"
+     - "Natural Resources and Environment Act 2021"
 
-dropzone.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    dropzone.style.background = "#eef";
-});
-dropzone.addEventListener("dragleave", () => {
-    dropzone.style.background = "#fff";
-});
-dropzone.addEventListener("drop", (e) => {
-    e.preventDefault();
-    dropzone.style.background = "#fff";
-    handleFiles(e.dataTransfer.files);
-});
-fileInput.addEventListener("change", () => handleFiles(fileInput.files));
+ Controls:
+ - Toggle 'Also italicise Acts / legislation' to enable Act detection.
+ - Acts appear in the same list of proposed replacements and are treated identically
+   (you accept/reject them in preview).
 
-function handleFiles(files) {
-    [...files].forEach(processFile);
-}
+ Notes:
+ - Legislation names are italicised only if accepted in preview.
+ - If you'd rather have legislation *not* italicised but wrapped with a different tag
+   (eg. <strong> or <span class="leg">), that is easy to change — tell me.
+*/
 
-function processFile(file) {
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const filesDiv = document.getElementById('files');
+const previewModal = document.getElementById('previewModal');
+const previewArea = document.getElementById('previewArea');
+const modalTitle = document.getElementById('modalTitle');
+const modalMeta = document.getElementById('modalMeta');
+const allowLinksCheckbox = document.getElementById('allowLinks');
+const whitelistTA = document.getElementById('whitelist');
+const blacklistTA = document.getElementById('blacklist');
+const alsoActsCheckbox = document.getElementById('alsoActs');
+
+dropzone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+
+dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', ()=> dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', (e) => { e.preventDefault(); dropzone.classList.remove('drag'); handleFiles(e.dataTransfer.files); });
+
+document.getElementById('clearList').addEventListener('click', ()=> { filesDiv.innerHTML=''; });
+
+let pendingFiles = []; // {file, rawText, doc, replacements: [{... , id: n}], accepted:Set}
+const SKIP_TAGS = new Set(['I','EM','CODE','PRE','SCRIPT','STYLE']);
+
+// Scientific name regex (as before)
+const SCI_RE = /\b([A-Z][A-Za-z\-]{2,})\s+([a-z][a-zA-Z\-]{2,})(?:\s+(?:subsp\.|ssp\.|var\.|f\.)\s+([a-z][a-zA-Z\-]{2,}))?\b/g;
+
+// Act regex:
+// Capture up to 4 capitalised words before 'Act', optionally followed by a 4-digit year.
+// Example: "Environmental Protection Act 1994", "Biosecurity Act 2015", "Weed Management Act"
+// Adjust maxWordsBefore to tune sensitivity.
+const maxWordsBefore = 4;
+const ACT_RE = new RegExp("\\b(([A-Z][A-Za-z\\-]{2,}(?:\\s+[A-Z][A-Za-z\\-]{2,}){0," + (maxWordsBefore-1) + "})\\s+Act(?:\\s+\\d{4})?)\\b", "g");
+
+function getWhitelist(){ return whitelistTA.value.split(/[\r\n]+/).map(s=>s.trim()).filter(Boolean); }
+function getBlacklist(){ return blacklistTA.value.split(/[\r\n]+/).map(s=>s.trim()).filter(Boolean); }
+
+function handleFiles(fileList){
+  [...fileList].forEach(file => {
+    if(!file.name.match(/\.html?$/i)) return;
+    const item = document.createElement('div');
+    item.className='file-item';
+    item.innerHTML = `<strong>${file.name}</strong> <div class="meta" style="margin-top:8px">Preparing…</div>`;
+    filesDiv.appendChild(item);
+
     const reader = new FileReader();
     reader.onload = () => {
-        let original = reader.result;
-
-        // Avoid double-wrapping: remove any existing <i> around scientific names
-        let cleaned = original.replace(/<i>(.*?)<\/i>/g, "$1");
-
-        // Wrap scientific names
-        let updated = cleaned.replace(sciNameRegex, "<i>$1 $2</i>");
-
-        downloadUpdated(file.name, updated);
-
-        showResult(file.name);
+      try {
+        const text = reader.result;
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'text/html');
+        item.querySelector('.meta').textContent = 'Analysing...';
+        analyseFile(file, text, doc, item);
+      } catch(err){
+        item.querySelector('.meta').textContent = 'Error parsing file';
+      }
     };
     reader.readAsText(file);
+  });
 }
 
-function downloadUpdated(filename, content) {
-    const blob = new Blob([content], {type: "text/html"});
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "italicised_" + filename;
-    link.click();
+function analyseFile(file, rawText, doc, itemElem){
+  const whitelist = getWhitelist();
+  const blacklist = getBlacklist().map(s=>s.toLowerCase());
+  const allowLinks = allowLinksCheckbox.checked;
+  const includeActs = alsoActsCheckbox.checked;
+
+  // Walk text nodes
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, null, false);
+  const replacements = []; // {node, start, end, matchText, replacementHtml, context, kind}
+  let node;
+  while(node = walker.nextNode()){
+    if(!node.nodeValue || !node.nodeValue.trim()) continue;
+
+    // skip if inside excluded parents
+    let skip=false;
+    let anc = node.parentElement;
+    while(anc){
+      const nname = anc.nodeName.toUpperCase();
+      if(SKIP_TAGS.has(nname)) { skip=true; break; }
+      if(!allowLinks && nname==='A'){ skip=true; break; }
+      anc = anc.parentElement;
+    }
+    if(skip) continue;
+
+    const text = node.nodeValue;
+
+    // whitelist exact substrings
+    for(const name of whitelist){
+      let i = text.indexOf(name);
+      while(i!==-1){
+        const j = i + name.length;
+        replacements.push({node, start:i, end:j, matchText:name, replacementHtml:`<i>${name}</i>`, context: contextSnippet(text,i,j), kind:'whitelist'});
+        i = text.indexOf(name, j);
+      }
+    }
+
+    // scientific name matches
+    let m;
+    while((m = SCI_RE.exec(text)) !== null){
+      const nameText = m[0];
+      const genus = m[1], species = m[2];
+      if(blacklist.includes(genus.toLowerCase()) || blacklist.includes(nameText.toLowerCase())) continue;
+      const start = m.index;
+      const end = start + nameText.length;
+      replacements.push({node, start, end, matchText:nameText, replacementHtml:`<i>${nameText}</i>`, context: contextSnippet(text,start,end), kind:'sci'});
+    }
+
+    // Act / legislation matches (if enabled)
+    if(includeActs){
+      let am;
+      while((am = ACT_RE.exec(text)) !== null){
+        const actText = am[1];
+        // blacklist check
+        if(blacklist.includes(actText.toLowerCase())) continue;
+        const astart = am.index;
+        const aend = astart + actText.length;
+        replacements.push({node, start:astart, end:aend, matchText:actText, replacementHtml:`<i>${actText}</i>`, context: contextSnippet(text,astart,aend), kind:'act'});
+      }
+    }
+  }
+
+  // dedupe overlapping matches per node: prefer earlier start then longer
+  replacements.sort((a,b)=>{
+    if(a.node===b.node) return a.start - b.start || (b.end-b.start) - (a.end-a.start);
+    return 0;
+  });
+  const filtered = [];
+  for(const r of replacements){
+    const last = filtered.length ? filtered[filtered.length-1] : null;
+    if(last && last.node === r.node && r.start < last.end) continue;
+    filtered.push(r);
+  }
+
+  // assign stable ids
+  filtered.forEach((r,i)=> r.id = i);
+
+  const pending = {file, rawText, doc, replacements:filtered, accepted:new Set()};
+  pendingFiles.push(pending);
+
+  const meta = itemElem.querySelector('.meta');
+  if(pending.replacements.length===0){
+    meta.textContent = 'No proposed changes';
+    const btn = makeButton('Download original', ()=>downloadText(file.name, rawText));
+    itemElem.appendChild(btn);
+  } else {
+    meta.textContent = `${pending.replacements.length} proposed change(s)`;
+    const reviewBtn = makeButton('Review changes', ()=>openPreview(pending));
+    const acceptAllBtn = makeButton('Accept all & download', ()=>{ applyAndDownload(pending, true); });
+    itemElem.appendChild(reviewBtn);
+    itemElem.appendChild(acceptAllBtn);
+  }
 }
 
-function showResult(name) {
-    const out = document.getElementById("output");
-    const div = document.createElement("div");
-    div.className = "file-item";
-    div.textContent = `Processed: ${name}`;
-    out.appendChild(div);
+function contextSnippet(text, s, e, pad=30){
+  const start = Math.max(0, s-pad);
+  const end = Math.min(text.length, e+pad);
+  return text.slice(start, end).replace(/\s+/g,' ');
 }
+
+function makeButton(label, onClick){
+  const b = document.createElement('button');
+  b.className='btn';
+  b.textContent = label;
+  b.style.marginLeft='8px';
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+// Preview modal logic
+let currentPending=null;
+let matchIndex=0;
+
+document.getElementById('downloadAccepted').addEventListener('click', ()=>{ downloadAcceptedHandler(); });
+document.getElementById('acceptAllAndDownload').addEventListener('click', ()=>{ if(currentPending) applyAndDownload(currentPending, true); });
+document.getElementById('rejectAll').addEventListener('click', ()=>{ closeModal(); });
+document.getElementById('prevMatch').addEventListener('click', ()=>{ if(currentPending) showMatch(currentPending, Math.max(0, matchIndex-1)); });
+document.getElementById('nextMatch').addEventListener('click', ()=>{ if(currentPending) showMatch(currentPending, Math.min(currentPending.replacements.length-1, matchIndex+1)); });
+document.getElementById('acceptMatch').addEventListener('click', ()=>{ acceptCurrentMatch(); });
+document.getElementById('rejectMatch').addEventListener('click', ()=>{ rejectCurrentMatch(); });
+
+function openPreview(pending){
+  currentPending = pending;
+  matchIndex = 0;
+  modalTitle.textContent = `Preview: ${pending.file.name}`;
+  modalMeta.textContent = `${pending.replacements.length} proposed change(s). Use Accept/Reject to control each.`;
+  previewModal.style.display = 'flex';
+  showMatch(pending, 0);
+}
+
+function closeModal(){ previewModal.style.display='none'; currentPending=null; previewArea.innerHTML=''; }
+
+function showMatch(pending, idx){
+  matchIndex = idx;
+  const r = pending.replacements[idx];
+  previewArea.innerHTML = '';
+  const nodeText = r.node.nodeValue;
+  const before = escapeHtml(nodeText.slice(0, r.start));
+  const matched = escapeHtml(nodeText.slice(r.start, r.end));
+  const after = escapeHtml(nodeText.slice(r.end));
+  const container = document.createElement('div');
+  const acceptedFlag = pending.accepted.has(idx) ? ' (ACCEPTED)' : '';
+  container.innerHTML = `<div style="font-size:0.95rem"><strong>Context${acceptedFlag}:</strong></div>
+    <div style="margin-top:6px">${before}<span class="match">${matched}</span>${after}</div>
+    <div style="margin-top:10px"><em>Snippet:</em> ${escapeHtml(r.context)}</div>
+    <div style="margin-top:6px"><em>Kind:</em> ${r.kind || 'unknown'}</div>`;
+  previewArea.appendChild(container);
+  modalMeta.textContent = `Match ${idx+1} / ${pending.replacements.length} — "${r.matchText}"`;
+}
+
+function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function acceptCurrentMatch(){
+  if(!currentPending) return;
+  currentPending.accepted.add(matchIndex);
+  if(matchIndex < currentPending.replacements.length -1) showMatch(currentPending, matchIndex+1);
+  else { modalMeta.textContent = 'All matches reviewed. Use Download accepted or Accept all & download.'; }
+}
+
+function rejectCurrentMatch(){
+  if(!currentPending) return;
+  currentPending.accepted.delete(matchIndex);
+  if(matchIndex < currentPending.replacements.length -1) showMatch(currentPending, matchIndex+1);
+  else { modalMeta.textContent = 'All matches reviewed. Use Download accepted or Accept all & download.'; }
+}
+
+function downloadAcceptedHandler(){
+  if(!currentPending) return;
+  if(currentPending.accepted.size === 0){
+    alert('No replacements have been accepted. If you want all replacements, use "Accept all & download".');
+    return;
+  }
+  applyAndDownload(currentPending, false);
+}
+
+function applyAndDownload(pending, acceptAll=false){
+  // clone doc
+  const doc = pending.doc.cloneNode(true);
+
+  // build list of original text nodes and map to indices
+  const origWalker = pending.doc.createTreeWalker(pending.doc.body, NodeFilter.SHOW_TEXT, null, false);
+  const origNodes = [];
+  while(origWalker.nextNode()) origNodes.push(origWalker.currentNode);
+
+  const cloneWalker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, null, false);
+  const cloneNodes = [];
+  while(cloneWalker.nextNode()) cloneNodes.push(cloneWalker.currentNode);
+
+  // prepare edits per clone node
+  const editsPerCloneNode = new Map(); // cloneNode -> [{start,end,repl}]
+  pending.replacements.forEach((r, i) => {
+    // apply only if acceptAll OR this index is in accepted set
+    if(!acceptAll && !pending.accepted.has(i)) return;
+    // find original node index
+    const origIndex = origNodes.indexOf(r.node);
+    if(origIndex === -1) return;
+    const cloneNode = cloneNodes[origIndex];
+    if(!cloneNode) return;
+    const arr = editsPerCloneNode.get(cloneNode) || [];
+    arr.push({start:r.start, end:r.end, repl:r.replacementHtml});
+    editsPerCloneNode.set(cloneNode, arr);
+  });
+
+  // apply replacements per clone node (from end to start)
+  for(const [node, arr] of editsPerCloneNode.entries()){
+    arr.sort((a,b)=> b.start - a.start);
+    let text = node.nodeValue;
+    for(const e of arr){
+      text = text.slice(0,e.start) + e.repl + text.slice(e.end);
+    }
+    const frag = document.createRange().createContextualFragment(text);
+    node.parentNode.replaceChild(frag, node);
+  }
+
+  const finalHtml = '<!doctype html>\n' + doc.documentElement.outerHTML;
+  downloadText('italicised_' + pending.file.name, finalHtml);
+  closeModal();
+}
+
+function downloadText(filename, content){
+  const blob = new Blob([content], {type: 'text/html'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 </script>
-
 </body>
 </html>
