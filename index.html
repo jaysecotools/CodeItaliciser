@@ -3,96 +3,282 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Scientific Name & Act Italiciser — Review & Fixed</title>
+<title>Scientific Name & Act Italiciser — Professional Edition (Patched)</title>
+
+<!-- JSZip & FileSaver (CDNs) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
 <style>
-  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:#f7f7f7; padding:20px;}
+  :root {
+    --primary: #0b79d0;
+    --primary-dark: #095fa7;
+    --success: #28a745;
+    --danger: #dc3545;
+    --warning: #ffc107;
+    --light: #f8f9fa;
+    --dark: #343a40;
+  }
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:#f7f7f7; padding:20px; line-height:1.5;}
   h1{margin:0 0 12px 0}
-  #dropzone{border:3px dashed #888;border-radius:10px;background:#fff;padding:36px;text-align:center;cursor:pointer}
-  #dropzone.drag{background:#eef}
-  .controls{display:flex;gap:8px;margin-top:12px;align-items:center}
-  textarea{width:100%;height:80px;padding:8px;border-radius:6px;border:1px solid #ccc}
+  #dropzone{border:3px dashed #888;border-radius:10px;background:#fff;padding:36px;text-align:center;cursor:pointer; transition: all 0.3s ease;}
+  #dropzone.drag{background:#eef; border-color: var(--primary);}
+  .controls{display:flex;gap:8px;margin-top:12px;align-items:center; flex-wrap: wrap;}
+  textarea{width:100%;height:80px;padding:8px;border-radius:6px;border:1px solid #ccc; font-family: monospace; font-size: 0.9rem;}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
-  .file-item{background:#fff;padding:10px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-top:10px}
-  .btn{padding:8px 12px;border-radius:6px;border:0;background:#0b79d0;color:white;cursor:pointer}
-  .btn.ghost{background:#eee;color:#222}
+  .file-item{background:#fff;padding:15px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-top:10px; border-left: 4px solid var(--primary);}
+  .btn{padding:8px 12px;border-radius:6px;border:0;background:var(--primary);color:white;cursor:pointer; transition: all 0.2s ease; font-weight:500;}
+  .btn:hover{background:var(--primary-dark); transform: translateY(-1px);}
+  .btn.ghost{background:#eee;color:#222;}
+  .btn.ghost:hover{background:#ddd;}
+  .btn.success{background:var(--success);}
+  .btn.success:hover{background:#218838;}
+  .btn.warning{background:var(--warning); color: var(--dark);}
+  .btn.warning:hover{background:#e0a800;}
+  .btn.danger{background:var(--danger);}
+  .btn.danger:hover{background:#c82333;}
   .preview-area{margin-top:12px;background:#fff;padding:12px;border-radius:6px;height:300px;overflow:auto;border:1px solid #eee}
   .match{background: #fffeba; padding:0 2px; border-radius:2px}
+  .match-new{background: #d4edda; padding:0 2px; border-radius:2px; text-decoration: underline;}
   .meta{font-size:0.9rem;color:#555;margin-bottom:6px}
-  .option-row{display:flex;gap:12px;align-items:center;margin-top:8px}
+  .option-row{display:flex;gap:12px;align-items:center;margin-top:8px; flex-wrap: wrap;}
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px; margin:15px 0;}
+  .stat-card{background:var(--light); padding:10px; border-radius:6px; text-align:center;}
+  .stat-value{font-size:1.5rem; font-weight:bold; color:var(--primary);}
+  .stat-label{font-size:0.8rem; color:#666;}
+  .tab-container{margin:15px 0;}
+  .tab-buttons{display:flex; border-bottom:1px solid #ddd;}
+  .tab-button{padding:8px 16px; background:none; border:none; cursor:pointer; border-bottom:2px solid transparent;}
+  .tab-button.active{background:#f0f0f0; border-bottom-color:var(--primary); font-weight:bold;}
+  .tab-content{display:none; padding:15px 0;}
+  .tab-content.active{display:block;}
+  .settings-panel{background:#fff; padding:15px; border-radius:8px; margin:15px 0;}
+  .setting-item{margin:10px 0;}
+  .tag-option{display:inline-flex; align-items:center; margin-right:15px;}
+  .history-item{padding:8px; border-bottom:1px solid #eee; cursor:pointer;}
+  .history-item:hover{background:#f5f5f5;}
+  .progress-bar{width:100%; height:6px; background:#eee; border-radius:3px; overflow:hidden; margin:5px 0;}
+  .progress-fill{height:100%; background:var(--primary); transition:width 0.3s ease;}
+  .badge{display:inline-block; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:bold; margin-left:5px;}
+  .badge.sci{background:#e8f4fd; color:#0b79d0;}
+  .badge.act{background:#fff3cd; color:#856404;}
+  .badge.whitelist{background:#d1ecf1; color:#0c5460;}
+  .tool-header{display:flex; justify-content:between; align-items:center; margin-bottom:15px;}
+  .tool-header h1{flex:1;}
+  .session-controls{display:flex; gap:8px;}
+  .diff-view{display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-top:10px;}
+  .diff-side{border:1px solid #eee; padding:10px; border-radius:4px; background:#fafafa;}
+  .diff-side h4{margin:0 0 8px 0; font-size:0.9rem; color:#666;}
+  .shortcut-hint{font-size:0.8rem; color:#666; margin-top:5px;}
+  .default-blacklist-toggle{margin-top:8px;}
+  /* ZIP progress modal */
+  #zipModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); align-items:center; justify-content:center; z-index:1200; }
+  #zipModal .panel { width:360px; background:#fff; padding:16px; border-radius:8px; text-align:center; }
 </style>
 </head>
 <body>
-  <h1>Italiciser — Scientific Names + Acts (preview before save)</h1>
-
-  <div id="dropzone">Drag & drop HTML files here — or click to choose files</div>
-  <input id="fileInput" type="file" accept=".html,.htm" multiple style="display:none">
-
-  <div class="row" style="margin-top:12px">
-    <div>
-      <label><strong>Whitelist (one per line — force match)</strong></label>
-      <textarea id="whitelist" placeholder="Eucalyptus globulus"></textarea>
-    </div>
-    <div>
-      <label><strong>Blacklist / Exclude (one per line)</strong></label>
-      <textarea id="blacklist" placeholder="State Council&#10;Department"></textarea>
+  <div class="tool-header">
+    <h1>Italiciser — Scientific Names + Acts (Professional Edition)</h1>
+    <div class="session-controls">
+      <button id="saveSession" class="btn ghost" title="Save current settings and lists">Save Session</button>
+      <button id="loadSession" class="btn ghost" title="Load saved session">Load Session</button>
+      <button id="clearAll" class="btn danger" title="Clear all files and reset">Clear All</button>
     </div>
   </div>
 
-  <div class="controls">
-    <label><input id="allowLinks" type="checkbox"> Allow replacements inside &lt;a&gt; links</label>
-    <label style="margin-left:12px"><input id="alsoActs" type="checkbox"> Also italicise Acts / legislation</label>
-    <div style="flex:1"></div>
-    <button id="clearList" class="btn ghost">Clear list</button>
+  <div class="tab-container">
+    <div class="tab-buttons">
+      <button class="tab-button active" data-tab="files">Files</button>
+      <button class="tab-button" data-tab="test">Test Mode</button>
+      <button class="tab-button" data-tab="settings">Settings</button>
+      <button class="tab-button" data-tab="history">History</button>
+    </div>
+    
+    <div class="tab-content active" id="files-tab">
+      <div id="dropzone">Drag & drop HTML files here — or click to choose files</div>
+      <input id="fileInput" type="file" accept=".html,.htm,.md,.txt" multiple style="display:none">
+
+      <div class="row" style="margin-top:12px">
+        <div>
+          <label><strong>Whitelist (one per line — force match)</strong></label>
+          <textarea id="whitelist" placeholder="Eucalyptus globulus&#10;Coronavirus SARS-CoV-2"></textarea>
+        </div>
+        <div>
+          <label><strong>Blacklist / Exclude (one per line)</strong></label>
+          <textarea id="blacklist" placeholder="Add terms to exclude from matching"></textarea>
+          <div class="default-blacklist-toggle">
+            <label><input type="checkbox" id="useDefaultBlacklist" checked> Use default blacklist (Council, Department, Commonwealth, etc.)</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <label><input id="allowLinks" type="checkbox"> Allow replacements inside &lt;a&gt; links</label>
+        <label><input id="alsoActs" type="checkbox" checked> Also italicise Acts / legislation</label>
+        <label><input id="processMarkdown" type="checkbox"> Process Markdown files (auto-apply)</label>
+        <label><input id="actsUseSpan" type="checkbox"> Use &lt;span&gt; for Acts instead of main tag</label>
+        <div style="flex:1"></div>
+        <button id="batchProcess" class="btn success">Process All Files</button>
+        <button id="batchZip" class="btn">Download All as ZIP</button>
+      </div>
+
+      <div class="stats-grid" id="globalStats" style="display:none;">
+        <div class="stat-card">
+          <div class="stat-value" id="totalFiles">0</div>
+          <div class="stat-label">Files</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="totalMatches">0</div>
+          <div class="stat-label">Total Matches</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="acceptedMatches">0</div>
+          <div class="stat-label">Accepted</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="timeSaved">0</div>
+          <div class="stat-label">Minutes Saved</div>
+        </div>
+      </div>
+
+      <div id="files" style="margin-top:12px"></div>
+    </div>
+    
+    <div class="tab-content" id="test-tab">
+      <h2>Test Mode</h2>
+      <p>Paste sample text here to test the italiciser before processing files:</p>
+      <textarea id="testText" placeholder="Paste your text here to test...&#10;&#10;Example:&#10;The Eucalyptus globulus and Acacia dealbata were studied under the Environmental Protection Act 1994. The Biosecurity Act 2015 also applies." style="height:200px;"></textarea>
+      <div class="controls" style="margin-top:10px;">
+        <button id="runTest" class="btn">Test Italiciser</button>
+        <button id="clearTest" class="btn ghost">Clear</button>
+      </div>
+      <div id="testResults" style="margin-top:15px; display:none;">
+        <h3>Test Results:</h3>
+        <div id="testOutput" class="preview-area"></div>
+      </div>
+    </div>
+    
+    <div class="tab-content" id="settings-tab">
+      <h2>Settings & Customization</h2>
+      <div class="settings-panel">
+        <div class="setting-item">
+          <label><strong>Replacement Tag:</strong></label>
+          <div style="margin-top:8px;">
+            <label class="tag-option"><input type="radio" name="replacementTag" value="i" checked> &lt;i&gt; (italic)</label>
+            <label class="tag-option"><input type="radio" name="replacementTag" value="em"> &lt;em&gt; (emphasis)</label>
+            <label class="tag-option"><input type="radio" name="replacementTag" value="span"> &lt;span class="sci-name"&gt;</label>
+            <label class="tag-option"><input type="radio" name="replacementTag" value="custom"> Custom: <input type="text" id="customTag" placeholder="e.g. strong" style="margin-left:5px; padding:4px; width:80px;"></label>
+          </div>
+        </div>
+        
+        <div class="setting-item">
+          <label><strong>Act Detection Sensitivity:</strong></label>
+          <div style="margin-top:8px;">
+            <select id="actSensitivity">
+              <option value="2">Low (2 words max before "Act")</option>
+              <option value="4" selected>Medium (4 words max before "Act")</option>
+              <option value="6">High (6 words max before "Act")</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="setting-item">
+          <label><strong>Scientific Name Validation:</strong></label>
+          <div style="margin-top:8px;">
+            <label><input type="checkbox" id="strictSpecies" checked> Require species to start with lowercase letter</label>
+          </div>
+        </div>
+        
+        <div class="setting-item">
+          <label><strong>Auto-save Session:</strong></label>
+          <div style="margin-top:8px;">
+            <label><input type="checkbox" id="autoSave"> Automatically save session every 2 minutes</label>
+          </div>
+        </div>
+      </div>
+      
+      <div class="controls">
+        <button id="exportSettings" class="btn">Export Settings</button>
+        <button id="importSettings" class="btn ghost">Import Settings</button>
+        <button id="resetSettings" class="btn danger">Reset to Defaults</button>
+      </div>
+    </div>
+    
+    <div class="tab-content" id="history-tab">
+      <h2>Processing History</h2>
+      <div class="controls">
+        <button id="clearHistory" class="btn danger">Clear History</button>
+        <button id="exportHistory" class="btn ghost">Export History</button>
+      </div>
+      <div id="historyList" style="margin-top:15px; max-height:400px; overflow-y:auto;">
+        <!-- History items will be added here -->
+      </div>
+    </div>
   </div>
 
-  <div style="margin-top:8px">
-    <small class="meta">Preview each proposed replacement; use Accept / Reject to control which edits are applied. Use the Acts toggle if you want legislation wrapped as well.</small>
-  </div>
-
-  <div id="files" style="margin-top:12px"></div>
-
-  <div id="previewModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);align-items:center;justify-content:center;">
-    <div style="width:90%;max-width:1100px;background:#fff;border-radius:8px;padding:14px;max-height:90vh;overflow:auto;">
+  <!-- Preview modal -->
+  <div id="previewModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);align-items:center;justify-content:center;z-index:1000;">
+    <div style="width:90%;max-width:1100px;background:#fff;border-radius:8px;padding:14px;max-height:90vh;overflow:auto;" role="dialog" aria-labelledby="modalTitle" aria-modal="true">
       <div style="display:flex;gap:8px;align-items:center">
         <h3 id="modalTitle" style="margin:0;flex:1">Preview</h3>
-        <button id="downloadAccepted" class="btn">Download accepted</button>
+        <button id="downloadAccepted" class="btn success">Download accepted</button>
         <button id="acceptAllAndDownload" class="btn">Accept all & download</button>
         <button id="rejectAll" class="btn ghost">Close without changes</button>
       </div>
       <p id="modalMeta" class="meta"></p>
+      
+      <div class="stats-grid" id="previewStats">
+        <div class="stat-card">
+          <div class="stat-value" id="previewTotal">0</div>
+          <div class="stat-label">Total Matches</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="previewAccepted">0</div>
+          <div class="stat-label">Accepted</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="previewRemaining">0</div>
+          <div class="stat-label">Remaining</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="previewProgress">0%</div>
+          <div class="stat-label">Progress</div>
+        </div>
+      </div>
+      <div class="progress-bar">
+        <div id="progressFill" class="progress-fill" style="width:0%"></div>
+      </div>
+      
       <div id="previewArea" class="preview-area"></div>
-      <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end">
-        <button id="prevMatch" class="btn ghost">Previous</button>
-        <button id="nextMatch" class="btn ghost">Next</button>
-        <button id="acceptMatch" class="btn">Accept match</button>
-        <button id="rejectMatch" class="btn ghost">Reject match</button>
+      <div class="shortcut-hint">
+        Shortcuts: A=Accept, R=Reject, ←/→=Navigate, Z=Undo, Esc=Close
+      </div>
+      <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end; flex-wrap: wrap;">
+        <button id="prevMatch" class="btn ghost" aria-label="Previous match (Left arrow)">Previous</button>
+        <button id="nextMatch" class="btn ghost" aria-label="Next match (Right arrow)">Next</button>
+        <button id="undoLast" class="btn warning" aria-label="Undo last action (Z)">Undo Last</button>
+        <button id="acceptMatch" class="btn success" aria-label="Accept this match (A)">Accept match</button>
+        <button id="rejectMatch" class="btn danger" aria-label="Reject this match (R)">Reject match</button>
       </div>
     </div>
   </div>
 
+  <!-- ZIP progress modal -->
+  <div id="zipModal">
+    <div class="panel">
+      <h3>Building ZIP</h3>
+      <p id="zipStatus">Preparing files...</p>
+      <div class="progress-bar" style="margin-top:10px;">
+        <div id="zipProgressFill" class="progress-fill" style="width:0%"></div>
+      </div>
+      <div style="margin-top:8px;"><button id="zipCancel" class="btn ghost">Cancel</button></div>
+    </div>
+  </div>
+
 <script>
-/*
- Adds Act/legislation detection to the existing preview+accept workflow.
+// Professional Edition - patched with requested fixes
 
- Patterns:
- - Scientific names: Genus species (and optional subsp./var./f.)
- - Acts: up to N capitalised words immediately before 'Act' + optional year (4 digits)
-   Example matches:
-     - "Biosecurity Act 2015"
-     - "Environmental Protection Act 1994"
-     - "Natural Resources and Environment Act 2021"
-
- Controls:
- - Toggle 'Also italicise Acts / legislation' to enable Act detection.
- - Acts appear in the same list of proposed replacements and are treated identically
-   (you accept/reject them in preview).
-
- Notes:
- - Legislation names are italicised only if accepted in preview.
- - If you'd rather have legislation *not* italicised but wrapped with a different tag
-   (eg. <strong> or <span class="leg">), that is easy to change — tell me.
-*/
-
+// Elements & controls
 const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('fileInput');
 const filesDiv = document.getElementById('files');
@@ -104,70 +290,228 @@ const allowLinksCheckbox = document.getElementById('allowLinks');
 const whitelistTA = document.getElementById('whitelist');
 const blacklistTA = document.getElementById('blacklist');
 const alsoActsCheckbox = document.getElementById('alsoActs');
+const processMarkdownCheckbox = document.getElementById('processMarkdown');
+const actsUseSpanCheckbox = document.getElementById('actsUseSpan');
+const useDefaultBlacklistCheckbox = document.getElementById('useDefaultBlacklist');
+const zipModal = document.getElementById('zipModal');
+const zipStatus = document.getElementById('zipStatus');
+const zipProgressFill = document.getElementById('zipProgressFill');
+const zipCancel = document.getElementById('zipCancel');
+
+// Default blacklist
+const DEFAULT_BLACKLIST = [
+  'Council', 'Department', 'Commonwealth', 'Minister',
+  'Councillor', 'Government', 'Authority', 'Commission',
+  'Board', 'Agency', 'Office', 'Bureau', 'Division'
+];
+
+document.querySelectorAll('.tab-button').forEach(button => {
+  button.addEventListener('click', () => {
+    document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    button.classList.add('active');
+    document.getElementById(button.dataset.tab + '-tab').classList.add('active');
+  });
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', handleKeyboardShortcuts);
+
+// Session & history
+let pendingFiles = [];
+const SKIP_TAGS = new Set(['I','EM','CODE','PRE','SCRIPT','STYLE']);
+let processingHistory = JSON.parse(localStorage.getItem('italiciserHistory') || '[]');
+
+// Load session and history
+loadSavedSession();
+updateHistoryDisplay();
+updateGlobalStats();
+
+// Auto-save
+setInterval(() => {
+  if (document.getElementById('autoSave')?.checked) saveSession();
+}, 120000);
+
+// Event wiring
+document.getElementById('runTest').addEventListener('click', runTest);
+document.getElementById('clearTest').addEventListener('click', () => {
+  document.getElementById('testText').value = '';
+  document.getElementById('testResults').style.display = 'none';
+});
+document.getElementById('saveSession').addEventListener('click', saveSession);
+document.getElementById('loadSession').addEventListener('click', loadSession);
+document.getElementById('clearAll').addEventListener('click', clearAll);
+document.getElementById('exportSettings').addEventListener('click', exportSettings);
+document.getElementById('importSettings').addEventListener('click', importSettings);
+document.getElementById('resetSettings').addEventListener('click', resetSettings);
+document.getElementById('clearHistory').addEventListener('click', clearHistory);
+document.getElementById('exportHistory').addEventListener('click', exportHistory);
+document.getElementById('batchProcess').addEventListener('click', batchProcessFiles);
+document.getElementById('batchZip').addEventListener('click', batchProcessAsZip);
+document.getElementById('downloadAccepted').addEventListener('click', ()=>{ downloadAcceptedHandler(); });
+document.getElementById('acceptAllAndDownload').addEventListener('click', ()=>{ if(currentPending) applyAndDownload(currentPending, true); });
+document.getElementById('rejectAll').addEventListener('click', ()=>{ closeModal(); });
+document.getElementById('prevMatch').addEventListener('click', ()=>{ if(currentPending) showMatch(currentPending, Math.max(0, matchIndex-1)); });
+document.getElementById('nextMatch').addEventListener('click', ()=>{ if(currentPending) showMatch(currentPending, Math.min(currentPending.replacements.length-1, matchIndex+1)); });
+document.getElementById('acceptMatch').addEventListener('click', ()=>{ acceptCurrentMatch(); });
+document.getElementById('rejectMatch').addEventListener('click', ()=>{ rejectCurrentMatch(); });
+document.getElementById('undoLast').addEventListener('click', ()=>{ undoLastAction(); });
+zipCancel.addEventListener('click', () => { if(confirm('Cancel ZIP creation?')) { zipCancelled = true; hideZipModal(); } });
 
 dropzone.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', () => handleFiles(fileInput.files));
-
 dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
 dropzone.addEventListener('dragleave', ()=> dropzone.classList.remove('drag'));
 dropzone.addEventListener('drop', (e) => { e.preventDefault(); dropzone.classList.remove('drag'); handleFiles(e.dataTransfer.files); });
 
-document.getElementById('clearList').addEventListener('click', ()=> { filesDiv.innerHTML=''; });
-
-let pendingFiles = []; // {file, rawText, doc, replacements: [{... , id: n}], accepted:Set}
-const SKIP_TAGS = new Set(['I','EM','CODE','PRE','SCRIPT','STYLE']);
-
-// Scientific name regex (as before)
-const SCI_RE = /\b([A-Z][A-Za-z\-]{2,})\s+([a-z][a-zA-Z\-]{2,})(?:\s+(?:subsp\.|ssp\.|var\.|f\.)\s+([a-z][a-zA-Z\-]{2,}))?\b/g;
-
-// Act regex:
-// Capture up to 4 capitalised words before 'Act', optionally followed by a 4-digit year.
-// Example: "Environmental Protection Act 1994", "Biosecurity Act 2015", "Weed Management Act"
-// Adjust maxWordsBefore to tune sensitivity.
-const maxWordsBefore = 4;
-const ACT_RE = new RegExp("\\b(([A-Z][A-Za-z\\-]{2,}(?:\\s+[A-Z][A-Za-z\\-]{2,}){0," + (maxWordsBefore-1) + "})\\s+Act(?:\\s+\\d{4})?)\\b", "g");
+/* --- Helpers & regex getters --- */
 
 function getWhitelist(){ return whitelistTA.value.split(/[\r\n]+/).map(s=>s.trim()).filter(Boolean); }
-function getBlacklist(){ return blacklistTA.value.split(/[\r\n]+/).map(s=>s.trim()).filter(Boolean); }
+function getBlacklist(){
+  const userList = blacklistTA.value.split(/[\r\n]+/).map(s=>s.trim()).filter(Boolean);
+  if (useDefaultBlacklistCheckbox.checked) {
+    // merge default blacklist but avoid duplicates
+    const merged = Array.from(new Set([...userList, ...DEFAULT_BLACKLIST]));
+    return merged;
+  }
+  return userList;
+}
+
+function getReplacementTag() {
+  const selected = document.querySelector('input[name="replacementTag"]:checked').value;
+  if (selected === 'custom') {
+    const customTag = document.getElementById('customTag').value.trim();
+    return customTag || 'i';
+  }
+  return selected;
+}
+
+function getActSensitivity() {
+  return parseInt(document.getElementById('actSensitivity').value) || 4;
+}
+
+// Consistent flags (no 'i' for sci)
+function getSciRegex() {
+  const strictSpecies = document.getElementById('strictSpecies')?.checked !== false;
+  if (strictSpecies) {
+    return /\b([A-Z][a-z]{2,})\s+([a-z][a-z]+)(?:\s+(?:subsp\.|ssp\.|var\.|f\.)\s+([a-z][a-z]+))?\b/g;
+  }
+  return /\b([A-Z][A-Za-z\-]{2,})\s+([a-z][a-zA-Z\-]+)(?:\s+(?:subsp\.|ssp\.|var\.|f\.)\s+([a-z][a-zA-Z\-]+))?\b/g;
+}
+
+function getActRegex() {
+  const maxWordsBefore = getActSensitivity();
+  return new RegExp("\\b(([A-Z][A-Za-z\\-]{2,}(?:\\s+[A-Z][A-Za-z\\-]{2,}){0," + (maxWordsBefore-1) + "})\\s+Act(?:\\s+\\(?\\d{4}\\)?)?)\\b", "g");
+}
+
+function escapeRegex(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/* --- Text node indexing (robust mapping) --- */
+function indexTextNodes(doc) {
+  const nodes = [];
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, null, false);
+  let idx = 0;
+  while(walker.nextNode()) {
+    const n = walker.currentNode;
+    n._textNodeIndex = idx++;
+    nodes.push(n);
+  }
+  return nodes;
+}
+
+/* --- File handling --- */
 
 function handleFiles(fileList){
-  [...fileList].forEach(file => {
-    if(!file.name.match(/\.html?$/i)) return;
+  const files = [...fileList].filter(file => {
+    const ext = file.name.split('.').pop().toLowerCase();
+    return ['html', 'htm', 'md', 'txt'].includes(ext);
+  });
+  if (files.length === 0) {
+    alert('Please select HTML, Markdown, or text files.');
+    return;
+  }
+  files.forEach(file => {
     const item = document.createElement('div');
-    item.className='file-item';
+    item.className = 'file-item';
     item.innerHTML = `<strong>${file.name}</strong> <div class="meta" style="margin-top:8px">Preparing…</div>`;
     filesDiv.appendChild(item);
-
     const reader = new FileReader();
     reader.onload = () => {
       try {
         const text = reader.result;
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(text, 'text/html');
-        item.querySelector('.meta').textContent = 'Analysing...';
-        analyseFile(file, text, doc, item);
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (ext === 'md' || ext === 'txt') {
+          if (!processMarkdownCheckbox.checked) {
+            item.querySelector('.meta').textContent = 'Markdown processing disabled - enable in settings';
+            return;
+          }
+          processMarkdownFile(file, text, item);
+        } else {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(text, 'text/html');
+          item.querySelector('.meta').textContent = 'Analysing...';
+          analyseFile(file, text, doc, item);
+        }
       } catch(err){
-        item.querySelector('.meta').textContent = 'Error parsing file';
+        item.querySelector('.meta').textContent = 'Error parsing file: ' + err.message;
       }
     };
     reader.readAsText(file);
   });
 }
 
+/* --- Markdown handling (auto-apply) --- */
+function processMarkdownFile(file, text, itemElem) {
+  const whitelist = getWhitelist();
+  const blacklist = getBlacklist().map(s=>s.toLowerCase());
+  const includeActs = alsoActsCheckbox.checked;
+  let processedText = text;
+  // Whitelist exact matches
+  for(const name of whitelist){
+    const regex = new RegExp(`\\b(${escapeRegex(name)})\\b`, 'g');
+    processedText = processedText.replace(regex, (match) => getReplacementHtml(match, 'whitelist'));
+  }
+  // Scientific names
+  const sciRegex = getSciRegex();
+  processedText = processedText.replace(sciRegex, (match, genus, species, subspecies) => {
+    if(blacklist.includes(genus.toLowerCase()) || blacklist.includes(match.toLowerCase())) return match;
+    return getReplacementHtml(match, 'sci');
+  });
+  // Acts
+  if (includeActs) {
+    const actRegex = getActRegex();
+    processedText = processedText.replace(actRegex, (match) => {
+      if(blacklist.includes(match.toLowerCase())) return match;
+      return getReplacementHtml(match, 'act');
+    });
+  }
+  const pending = {file, rawText: text, processedText, replacements: [], isMarkdown: true};
+  pendingFiles.push(pending);
+  const meta = itemElem.querySelector('.meta');
+  meta.textContent = 'Markdown file processed (auto-applied)';
+  const downloadBtn = makeButton('Download processed', ()=>downloadText(file.name, processedText));
+  itemElem.appendChild(downloadBtn);
+  updateGlobalStats();
+}
+
+/* --- HTML analysis --- */
 function analyseFile(file, rawText, doc, itemElem){
   const whitelist = getWhitelist();
   const blacklist = getBlacklist().map(s=>s.toLowerCase());
   const allowLinks = allowLinksCheckbox.checked;
   const includeActs = alsoActsCheckbox.checked;
 
-  // Walk text nodes
+  // Robust indexing
+  const origNodes = indexTextNodes(doc);
+
   const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, null, false);
-  const replacements = []; // {node, start, end, matchText, replacementHtml, context, kind}
+  const replacements = [];
   let node;
   while(node = walker.nextNode()){
     if(!node.nodeValue || !node.nodeValue.trim()) continue;
-
-    // skip if inside excluded parents
+    // skip parents
     let skip=false;
     let anc = node.parentElement;
     while(anc){
@@ -177,45 +521,69 @@ function analyseFile(file, rawText, doc, itemElem){
       anc = anc.parentElement;
     }
     if(skip) continue;
-
     const text = node.nodeValue;
-
-    // whitelist exact substrings
+    // whitelist
     for(const name of whitelist){
       let i = text.indexOf(name);
       while(i!==-1){
         const j = i + name.length;
-        replacements.push({node, start:i, end:j, matchText:name, replacementHtml:`<i>${name}</i>`, context: contextSnippet(text,i,j), kind:'whitelist'});
+        replacements.push({
+          node,
+          start:i,
+          end:j,
+          matchText:name,
+          replacementHtml:getReplacementHtml(name, 'whitelist'),
+          context: contextSnippet(text,i,j),
+          kind:'whitelist',
+          nodeIndex: node._textNodeIndex
+        });
         i = text.indexOf(name, j);
       }
     }
-
-    // scientific name matches
+    // scientific
     let m;
-    while((m = SCI_RE.exec(text)) !== null){
+    const sciRegex = getSciRegex();
+    while((m = sciRegex.exec(text)) !== null){
       const nameText = m[0];
       const genus = m[1], species = m[2];
       if(blacklist.includes(genus.toLowerCase()) || blacklist.includes(nameText.toLowerCase())) continue;
       const start = m.index;
       const end = start + nameText.length;
-      replacements.push({node, start, end, matchText:nameText, replacementHtml:`<i>${nameText}</i>`, context: contextSnippet(text,start,end), kind:'sci'});
+      replacements.push({
+        node,
+        start,
+        end,
+        matchText:nameText,
+        replacementHtml:getReplacementHtml(nameText, 'sci'),
+        context: contextSnippet(text,start,end),
+        kind:'sci',
+        nodeIndex: node._textNodeIndex
+      });
     }
-
-    // Act / legislation matches (if enabled)
+    // Acts
     if(includeActs){
       let am;
-      while((am = ACT_RE.exec(text)) !== null){
+      const actRegex = getActRegex();
+      while((am = actRegex.exec(text)) !== null){
         const actText = am[1];
-        // blacklist check
         if(blacklist.includes(actText.toLowerCase())) continue;
         const astart = am.index;
         const aend = astart + actText.length;
-        replacements.push({node, start:astart, end:aend, matchText:actText, replacementHtml:`<i>${actText}</i>`, context: contextSnippet(text,astart,aend), kind:'act'});
+        replacements.push({
+          node,
+          start:astart,
+          end:aend,
+          matchText:actText,
+          replacementHtml:getReplacementHtml(actText, 'act'),
+          context: contextSnippet(text,astart,aend),
+          kind:'act',
+          nodeIndex: node._textNodeIndex
+        });
       }
     }
   }
 
-  // dedupe overlapping matches per node: prefer earlier start then longer
+  // dedupe per node
   replacements.sort((a,b)=>{
     if(a.node===b.node) return a.start - b.start || (b.end-b.start) - (a.end-a.start);
     return 0;
@@ -226,13 +594,9 @@ function analyseFile(file, rawText, doc, itemElem){
     if(last && last.node === r.node && r.start < last.end) continue;
     filtered.push(r);
   }
-
-  // assign stable ids
   filtered.forEach((r,i)=> r.id = i);
-
-  const pending = {file, rawText, doc, replacements:filtered, accepted:new Set()};
+  const pending = {file, rawText, doc, replacements:filtered, accepted:new Set(), undoStack: [], origNodes};
   pendingFiles.push(pending);
-
   const meta = itemElem.querySelector('.meta');
   if(pending.replacements.length===0){
     meta.textContent = 'No proposed changes';
@@ -245,45 +609,52 @@ function analyseFile(file, rawText, doc, itemElem){
     itemElem.appendChild(reviewBtn);
     itemElem.appendChild(acceptAllBtn);
   }
+  updateGlobalStats();
 }
 
-function contextSnippet(text, s, e, pad=30){
-  const start = Math.max(0, s-pad);
-  const end = Math.min(text.length, e+pad);
-  return text.slice(start, end).replace(/\s+/g,' ');
+/* --- Replacement HTML --- */
+function getReplacementHtml(text, kind) {
+  const tag = getReplacementTag();
+  if (kind === 'act' && actsUseSpanCheckbox.checked) {
+    return `<span class="legislation">${text}</span>`;
+  }
+  if (tag === 'i' || tag === 'em') {
+    return `<${tag}>${text}</${tag}>`;
+  }
+  const className = kind === 'act' ? 'legislation' : 'sci-name';
+  return `<${tag} class="${className}">${text}</${tag}>`;
 }
 
-function makeButton(label, onClick){
-  const b = document.createElement('button');
-  b.className='btn';
-  b.textContent = label;
-  b.style.marginLeft='8px';
-  b.addEventListener('click', onClick);
-  return b;
-}
-
-// Preview modal logic
+/* --- Preview modal logic --- */
 let currentPending=null;
 let matchIndex=0;
-
-document.getElementById('downloadAccepted').addEventListener('click', ()=>{ downloadAcceptedHandler(); });
-document.getElementById('acceptAllAndDownload').addEventListener('click', ()=>{ if(currentPending) applyAndDownload(currentPending, true); });
-document.getElementById('rejectAll').addEventListener('click', ()=>{ closeModal(); });
-document.getElementById('prevMatch').addEventListener('click', ()=>{ if(currentPending) showMatch(currentPending, Math.max(0, matchIndex-1)); });
-document.getElementById('nextMatch').addEventListener('click', ()=>{ if(currentPending) showMatch(currentPending, Math.min(currentPending.replacements.length-1, matchIndex+1)); });
-document.getElementById('acceptMatch').addEventListener('click', ()=>{ acceptCurrentMatch(); });
-document.getElementById('rejectMatch').addEventListener('click', ()=>{ rejectCurrentMatch(); });
 
 function openPreview(pending){
   currentPending = pending;
   matchIndex = 0;
   modalTitle.textContent = `Preview: ${pending.file.name}`;
-  modalMeta.textContent = `${pending.replacements.length} proposed change(s). Use Accept/Reject to control each.`;
+  updatePreviewStats();
   previewModal.style.display = 'flex';
+  // focus
+  const focusableElements = previewModal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  if (focusableElements.length > 0) focusableElements[0].focus();
   showMatch(pending, 0);
 }
 
 function closeModal(){ previewModal.style.display='none'; currentPending=null; previewArea.innerHTML=''; }
+
+function updatePreviewStats() {
+  if (!currentPending) return;
+  const total = currentPending.replacements.length;
+  const accepted = currentPending.accepted.size;
+  const remaining = total - accepted;
+  const progress = total > 0 ? Math.round((accepted / total) * 100) : 0;
+  document.getElementById('previewTotal').textContent = total;
+  document.getElementById('previewAccepted').textContent = accepted;
+  document.getElementById('previewRemaining').textContent = remaining;
+  document.getElementById('previewProgress').textContent = progress + '%';
+  document.getElementById('progressFill').style.width = progress + '%';
+}
 
 function showMatch(pending, idx){
   matchIndex = idx;
@@ -295,28 +666,59 @@ function showMatch(pending, idx){
   const after = escapeHtml(nodeText.slice(r.end));
   const container = document.createElement('div');
   const acceptedFlag = pending.accepted.has(idx) ? ' (ACCEPTED)' : '';
-  container.innerHTML = `<div style="font-size:0.95rem"><strong>Context${acceptedFlag}:</strong></div>
-    <div style="margin-top:6px">${before}<span class="match">${matched}</span>${after}</div>
-    <div style="margin-top:10px"><em>Snippet:</em> ${escapeHtml(r.context)}</div>
-    <div style="margin-top:6px"><em>Kind:</em> ${r.kind || 'unknown'}</div>`;
+  const badgeClass = r.kind === 'sci' ? 'sci' : r.kind === 'act' ? 'act' : 'whitelist';
+  const beforeHtml = `${before}<span class="match">${matched}</span>${after}`;
+  container.innerHTML = `
+    <div style="font-size:0.95rem">
+      <strong>Match ${idx+1} of ${pending.replacements.length}${acceptedFlag}:</strong> 
+      <span class="badge ${badgeClass}">${r.kind}</span>
+    </div>
+    <div class="diff-view">
+      <div class="diff-side">
+        <h4>Before:</h4>
+        <div>${beforeHtml}</div>
+      </div>
+      <div class="diff-side">
+        <h4>After:</h4>
+        <div>${before}${r.replacementHtml}${after}</div>
+      </div>
+    </div>
+    <div style="margin-top:10px"><em>Context:</em> ${escapeHtml(r.context)}</div>`;
   previewArea.appendChild(container);
-  modalMeta.textContent = `Match ${idx+1} / ${pending.replacements.length} — "${r.matchText}"`;
+  modalMeta.textContent = `"${r.matchText}" → ${r.replacementHtml}`;
+  updatePreviewStats();
 }
 
 function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function acceptCurrentMatch(){
   if(!currentPending) return;
+  currentPending.undoStack.push({action:'accept', index:matchIndex, wasAccepted: currentPending.accepted.has(matchIndex)});
   currentPending.accepted.add(matchIndex);
   if(matchIndex < currentPending.replacements.length -1) showMatch(currentPending, matchIndex+1);
-  else { modalMeta.textContent = 'All matches reviewed. Use Download accepted or Accept all & download.'; }
+  else modalMeta.textContent = 'All matches reviewed. Use Download accepted or Accept all & download.';
+  updatePreviewStats();
 }
 
 function rejectCurrentMatch(){
   if(!currentPending) return;
+  currentPending.undoStack.push({action:'reject', index:matchIndex, wasAccepted: currentPending.accepted.has(matchIndex)});
   currentPending.accepted.delete(matchIndex);
   if(matchIndex < currentPending.replacements.length -1) showMatch(currentPending, matchIndex+1);
-  else { modalMeta.textContent = 'All matches reviewed. Use Download accepted or Accept all & download.'; }
+  else modalMeta.textContent = 'All matches reviewed. Use Download accepted or Accept all & download.';
+  updatePreviewStats();
+}
+
+function undoLastAction() {
+  if (!currentPending || currentPending.undoStack.length === 0) return;
+  const lastAction = currentPending.undoStack.pop();
+  if (lastAction.action === 'accept') {
+    if (!lastAction.wasAccepted) currentPending.accepted.delete(lastAction.index);
+  } else if (lastAction.action === 'reject') {
+    if (lastAction.wasAccepted) currentPending.accepted.add(lastAction.index);
+  }
+  showMatch(currentPending, lastAction.index);
+  updatePreviewStats();
 }
 
 function downloadAcceptedHandler(){
@@ -328,58 +730,527 @@ function downloadAcceptedHandler(){
   applyAndDownload(currentPending, false);
 }
 
+/* --- Apply & Download --- */
 function applyAndDownload(pending, acceptAll=false){
-  // clone doc
+  const startTime = performance.now();
+  if (pending.isMarkdown) {
+    downloadText('italicised_' + pending.file.name, pending.processedText);
+    addToHistory(pending.file.name, pending.replacements.length, acceptAll ? pending.replacements.length : pending.accepted.size, performance.now() - startTime);
+    closeModal();
+    return;
+  }
   const doc = pending.doc.cloneNode(true);
-
-  // build list of original text nodes and map to indices
-  const origWalker = pending.doc.createTreeWalker(pending.doc.body, NodeFilter.SHOW_TEXT, null, false);
-  const origNodes = [];
-  while(origWalker.nextNode()) origNodes.push(origWalker.currentNode);
-
-  const cloneWalker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, null, false);
-  const cloneNodes = [];
-  while(cloneWalker.nextNode()) cloneNodes.push(cloneWalker.currentNode);
-
-  // prepare edits per clone node
-  const editsPerCloneNode = new Map(); // cloneNode -> [{start,end,repl}]
+  const cloneNodes = indexTextNodes(doc);
+  const editsPerCloneNode = new Map();
   pending.replacements.forEach((r, i) => {
-    // apply only if acceptAll OR this index is in accepted set
     if(!acceptAll && !pending.accepted.has(i)) return;
-    // find original node index
-    const origIndex = origNodes.indexOf(r.node);
-    if(origIndex === -1) return;
-    const cloneNode = cloneNodes[origIndex];
+    const cloneNode = cloneNodes[r.nodeIndex];
     if(!cloneNode) return;
     const arr = editsPerCloneNode.get(cloneNode) || [];
     arr.push({start:r.start, end:r.end, repl:r.replacementHtml});
     editsPerCloneNode.set(cloneNode, arr);
   });
-
-  // apply replacements per clone node (from end to start)
   for(const [node, arr] of editsPerCloneNode.entries()){
     arr.sort((a,b)=> b.start - a.start);
     let text = node.nodeValue;
-    for(const e of arr){
-      text = text.slice(0,e.start) + e.repl + text.slice(e.end);
-    }
+    for(const e of arr) text = text.slice(0,e.start) + e.repl + text.slice(e.end);
     const frag = document.createRange().createContextualFragment(text);
     node.parentNode.replaceChild(frag, node);
   }
-
   const finalHtml = '<!doctype html>\n' + doc.documentElement.outerHTML;
   downloadText('italicised_' + pending.file.name, finalHtml);
+  const processingTime = performance.now() - startTime;
+  addToHistory(pending.file.name, pending.replacements.length, acceptAll ? pending.replacements.length : pending.accepted.size, processingTime);
   closeModal();
 }
 
-function downloadText(filename, content){
-  const blob = new Blob([content], {type: 'text/html'});
+/* --- ZIP batch: respects accepted matches (fallback to apply all if none accepted) --- */
+let zipCancelled = false;
+function batchProcessAsZip() {
+  if (pendingFiles.length === 0) { alert('No files to process.'); return; }
+  if (!confirm(`Process ${pendingFiles.length} files and download as ZIP?`)) return;
+  zipCancelled = false;
+  showZipModal('Preparing ZIP...');
+  const zip = new JSZip();
+  const reportRows = [];
+  let processedCount = 0;
+  // We'll iterate serially to make progress updates meaningful.
+  const totalFiles = pendingFiles.length;
+  let fileIndex = 0;
+  function processNext() {
+    if (zipCancelled) { hideZipModal(); return; }
+    if (fileIndex >= totalFiles) {
+      // generate zip with progress updates
+      zip.generateAsync({type:'blob'}, metadata => {
+        const pct = Math.round(metadata.percent);
+        zipStatus.textContent = `Compressing files — ${pct}%`;
+        zipProgressFill.style.width = pct + '%';
+      }).then(blob => {
+        saveBlobWithFallback(blob, 'italicised_files.zip');
+        // add report.csv to zip? we already added; but include a small alert
+        hideZipModal();
+        alert(`Successfully created ZIP with ${processedCount} files! The ZIP includes a report.csv summarising changes.`);
+      }).catch(err => {
+        hideZipModal();
+        alert('ZIP creation failed: ' + err);
+      });
+      return;
+    }
+    const pending = pendingFiles[fileIndex++];
+    zipStatus.textContent = `Processing ${pending.file.name} (${fileIndex}/${totalFiles})`;
+    zipProgressFill.style.width = `${Math.round((fileIndex/totalFiles)*20)}%`; // initial progress while constructing
+    setTimeout(()=> { // allow UI to update
+      if (pending.isMarkdown) {
+        zip.file('italicised_' + pending.file.name, pending.processedText);
+        reportRows.push([pending.file.name, 0, 0, 0, 'markdown (auto-applied)']);
+        processedCount++;
+        processNext();
+      } else {
+        // build final content honouring accepted set
+        const doc = pending.doc.cloneNode(true);
+        const cloneNodes = indexTextNodes(doc);
+        const editsPerCloneNode = new Map();
+        // apply accepted ones only; fallback: if accepted set empty => apply all
+        const userAcceptedExists = pending.accepted && pending.accepted.size > 0;
+        pending.replacements.forEach((r, i) => {
+          const useThis = userAcceptedExists ? pending.accepted.has(i) : true;
+          if(!useThis) return;
+          const cloneNode = cloneNodes[r.nodeIndex];
+          if(!cloneNode) return;
+          const arr = editsPerCloneNode.get(cloneNode) || [];
+          arr.push({start:r.start, end:r.end, repl:r.replacementHtml});
+          editsPerCloneNode.set(cloneNode, arr);
+        });
+        for(const [node, arr] of editsPerCloneNode.entries()){
+          arr.sort((a,b)=> b.start - a.start);
+          let text = node.nodeValue;
+          for(const e of arr) text = text.slice(0,e.start) + e.repl + text.slice(e.end);
+          const frag = document.createRange().createContextualFragment(text);
+          node.parentNode.replaceChild(frag, node);
+        }
+        const finalHtml = '<!doctype html>\n' + doc.documentElement.outerHTML;
+        zip.file('italicised_' + pending.file.name, finalHtml);
+        const totalMatches = pending.replacements.length;
+        const acceptedMatches = pending.accepted ? pending.accepted.size : 0;
+        const appliedMatches = (acceptedMatches > 0) ? acceptedMatches : totalMatches;
+        reportRows.push([pending.file.name, totalMatches, acceptedMatches, appliedMatches, 'ok']);
+        processedCount++;
+        processNext();
+      }
+    }, 10);
+  }
+  processNext();
+  // add report.csv after processing loop completes (we wait for zip.generateAsync to finish)
+  // But because generateAsync reads current zip contents, add report at end when generating: we'll create it to include here.
+  // We add a small delay to populate report once processedCount reaches totalFiles inside generateAsync stage (above).
+  // Instead, to ensure report present, we'll re-generate report inside a short interval before finalising.
+  // Implementation: poll for completion and then add report when generating — simpler approach: include report generation before generateAsync call in processNext end. 
+  // (Implementation already collects reportRows; we'll attach report.csv just before generateAsync.)
+  // For that we need to intercept generateAsync call above — to keep code tidy, when we reach fileIndex >= totalFiles we build report then generate.
+}
+
+/* --- Show/hide ZIP modal --- */
+function showZipModal(message) {
+  zipCancelled = false;
+  zipStatus.textContent = message || 'Building ZIP...';
+  zipProgressFill.style.width = '0%';
+  zipModal.style.display = 'flex';
+}
+function hideZipModal() {
+  zipModal.style.display = 'none';
+}
+
+/* --- Fallback save function for blob --- */
+function saveBlobWithFallback(blob, name) {
+  if (typeof saveAs === 'function') {
+    try { saveAs(blob, name); return; } catch(e){}
+  }
+  // fallback
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
+  a.href = url;
+  a.download = name;
   document.body.appendChild(a);
   a.click();
   a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/* --- NOTE: The above batchProcessAsZip created the zip and finalised it.
+   We need to ensure report.csv is added before generateAsync runs.
+   For simplicity and clarity, below is a corrected batchProcessAsZip implementation
+   which adds report.csv prior to generateAsync and uses onUpdate callback.
+*/
+
+function batchProcessAsZip() {
+  if (pendingFiles.length === 0) { alert('No files to process.'); return; }
+  if (!confirm(`Process all ${pendingFiles.length} files and download as ZIP?`)) return;
+  zipCancelled = false;
+  showZipModal('Preparing files...');
+  const zip = new JSZip();
+  const reportRows = [['filename','total_matches','accepted_matches','applied_matches','notes']];
+  let processedCount = 0;
+
+  // serial processing to provide responsive UI
+  const totalFiles = pendingFiles.length;
+  (function processFileAt(i){
+    if (zipCancelled) { hideZipModal(); return; }
+    if (i >= totalFiles) {
+      // All files added — create report.csv and generate
+      const csv = reportRows.map(r => r.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\n');
+      zip.file('report.csv', csv);
+      zip.generateAsync({type:'blob'}, metadata => {
+        const pct = Math.round(metadata.percent);
+        zipStatus.textContent = `Compressing files — ${pct}%`;
+        zipProgressFill.style.width = pct + '%';
+      }).then(blob => {
+        saveBlobWithFallback(blob, 'italicised_files.zip');
+        hideZipModal();
+        alert(`Successfully created ZIP with ${processedCount} files! See report.csv inside the ZIP for details.`);
+      }).catch(err => {
+        hideZipModal();
+        alert('ZIP creation failed: ' + err);
+      });
+      return;
+    }
+
+    const pending = pendingFiles[i];
+    zipStatus.textContent = `Processing ${pending.file.name} (${i+1}/${totalFiles})`;
+    zipProgressFill.style.width = `${Math.round((i/totalFiles)*30)}%`;
+
+    setTimeout(() => {
+      if (pending.isMarkdown) {
+        zip.file('italicised_' + pending.file.name, pending.processedText);
+        reportRows.push([pending.file.name, 0, 0, 0, 'markdown (auto-applied)']);
+        processedCount++;
+        processFileAt(i+1);
+      } else {
+        const doc = pending.doc.cloneNode(true);
+        const cloneNodes = indexTextNodes(doc);
+        const editsPerCloneNode = new Map();
+        const userAcceptedExists = pending.accepted && pending.accepted.size > 0;
+
+        pending.replacements.forEach((r, idx) => {
+          const useThis = userAcceptedExists ? pending.accepted.has(idx) : true;
+          if(!useThis) return;
+          const cloneNode = cloneNodes[r.nodeIndex];
+          if(!cloneNode) return;
+          const arr = editsPerCloneNode.get(cloneNode) || [];
+          arr.push({start:r.start, end:r.end, repl:r.replacementHtml});
+          editsPerCloneNode.set(cloneNode, arr);
+        });
+
+        for(const [node, arr] of editsPerCloneNode.entries()){
+          arr.sort((a,b)=> b.start - a.start);
+          let text = node.nodeValue;
+          for(const e of arr) text = text.slice(0,e.start) + e.repl + text.slice(e.end);
+          const frag = document.createRange().createContextualFragment(text);
+          node.parentNode.replaceChild(frag, node);
+        }
+
+        const finalHtml = '<!doctype html>\n' + doc.documentElement.outerHTML;
+        zip.file('italicised_' + pending.file.name, finalHtml);
+
+        const totalMatches = pending.replacements.length;
+        const acceptedMatches = pending.accepted ? pending.accepted.size : 0;
+        const appliedMatches = (acceptedMatches > 0) ? acceptedMatches : totalMatches;
+        reportRows.push([pending.file.name, totalMatches, acceptedMatches, appliedMatches, 'ok']);
+        processedCount++;
+        processFileAt(i+1);
+      }
+    }, 10);
+  })(0);
+}
+
+/* --- Utilities --- */
+function downloadText(filename, content){
+  const blob = new Blob([content], {type: 'text/html'});
+  saveBlobWithFallback(blob, filename);
+}
+
+function makeButton(label, onClick, type='') {
+  const b = document.createElement('button');
+  b.className = type ? `btn ${type}` : 'btn';
+  b.textContent = label;
+  b.style.marginLeft = '8px';
+  b.addEventListener('click', onClick);
+  return b;
+}
+
+/* --- Test mode --- */
+function runTest() {
+  const testText = document.getElementById('testText').value;
+  if (!testText.trim()) { alert('Please enter some text to test.'); return; }
+  const whitelist = getWhitelist();
+  const blacklist = getBlacklist().map(s=>s.toLowerCase());
+  const includeActs = alsoActsCheckbox.checked;
+  let processedText = testText;
+  for(const name of whitelist){
+    const regex = new RegExp(`\\b(${escapeRegex(name)})\\b`, 'g');
+    processedText = processedText.replace(regex, (match) => getReplacementHtml(match, 'whitelist'));
+  }
+  const sciRegex = getSciRegex();
+  processedText = processedText.replace(sciRegex, (match, genus, species, subspecies) => {
+    if(blacklist.includes(genus.toLowerCase()) || blacklist.includes(match.toLowerCase())) return match;
+    return getReplacementHtml(match, 'sci');
+  });
+  if (includeActs) {
+    const actRegex = getActRegex();
+    processedText = processedText.replace(actRegex, (match) => {
+      if(blacklist.includes(match.toLowerCase())) return match;
+      return getReplacementHtml(match, 'act');
+    });
+  }
+  document.getElementById('testOutput').innerHTML = processedText;
+  document.getElementById('testResults').style.display = 'block';
+}
+
+/* --- Stats, history, session --- */
+function updateGlobalStats() {
+  const totalFiles = pendingFiles.length;
+  const totalMatches = pendingFiles.reduce((sum, file) => sum + (file.replacements ? file.replacements.length : 0), 0);
+  const acceptedMatches = pendingFiles.reduce((sum, file) => sum + (file.accepted ? file.accepted.size : 0), 0);
+  const timeSaved = Math.round(totalMatches * 0.5);
+  if (totalFiles > 0) {
+    document.getElementById('globalStats').style.display = 'grid';
+    document.getElementById('totalFiles').textContent = totalFiles;
+    document.getElementById('totalMatches').textContent = totalMatches;
+    document.getElementById('acceptedMatches').textContent = acceptedMatches;
+    document.getElementById('timeSaved').textContent = timeSaved;
+  } else {
+    document.getElementById('globalStats').style.display = 'none';
+  }
+}
+
+function addToHistory(filename, totalMatches, acceptedMatches, processingTimeMs) {
+  const historyItem = { filename, totalMatches, acceptedMatches, processingTime: Math.round(processingTimeMs), timestamp: new Date().toISOString() };
+  processingHistory.unshift(historyItem);
+  if (processingHistory.length > 50) processingHistory = processingHistory.slice(0,50);
+  localStorage.setItem('italiciserHistory', JSON.stringify(processingHistory));
+  updateHistoryDisplay();
+}
+
+function updateHistoryDisplay() {
+  const historyList = document.getElementById('historyList');
+  historyList.innerHTML = '';
+  if (processingHistory.length === 0) {
+    historyList.innerHTML = '<p>No processing history yet.</p>';
+    return;
+  }
+  processingHistory.forEach(item => {
+    const historyItem = document.createElement('div');
+    historyItem.className = 'history-item';
+    historyItem.innerHTML = `<div><strong>${item.filename}</strong></div>
+      <div class="meta">${item.acceptedMatches}/${item.totalMatches} matches · ${new Date(item.timestamp).toLocaleString()} · ${item.processingTime}ms</div>`;
+    historyList.appendChild(historyItem);
+  });
+}
+
+/* --- Session saving/loading --- */
+function saveSession() {
+  const session = {
+    whitelist: whitelistTA.value,
+    blacklist: blacklistTA.value,
+    allowLinks: allowLinksCheckbox.checked,
+    alsoActs: alsoActsCheckbox.checked,
+    processMarkdown: processMarkdownCheckbox.checked,
+    actsUseSpan: actsUseSpanCheckbox.checked,
+    useDefaultBlacklist: useDefaultBlacklistCheckbox.checked,
+    replacementTag: document.querySelector('input[name="replacementTag"]:checked').value,
+    customTag: document.getElementById('customTag').value,
+    actSensitivity: document.getElementById('actSensitivity').value,
+    strictSpecies: document.getElementById('strictSpecies')?.checked,
+    timestamp: new Date().toISOString()
+  };
+  localStorage.setItem('italiciserSession', JSON.stringify(session));
+  alert('Session saved successfully!');
+}
+
+function loadSavedSession() {
+  const saved = localStorage.getItem('italiciserSession');
+  if (saved) {
+    try {
+      const session = JSON.parse(saved);
+      whitelistTA.value = session.whitelist || '';
+      blacklistTA.value = session.blacklist || '';
+      allowLinksCheckbox.checked = session.allowLinks || false;
+      alsoActsCheckbox.checked = session.alsoActs !== false;
+      processMarkdownCheckbox.checked = session.processMarkdown || false;
+      actsUseSpanCheckbox.checked = session.actsUseSpan || false;
+      useDefaultBlacklistCheckbox.checked = session.useDefaultBlacklist !== false;
+      if (session.replacementTag) {
+        const sel = document.querySelector(`input[name="replacementTag"][value="${session.replacementTag}"]`);
+        if (sel) sel.checked = true;
+      }
+      if (session.customTag) document.getElementById('customTag').value = session.customTag;
+      if (session.actSensitivity) document.getElementById('actSensitivity').value = session.actSensitivity;
+      if (session.strictSpecies !== undefined) document.getElementById('strictSpecies').checked = session.strictSpecies;
+    } catch (e) { console.error('Error loading session:', e); }
+  }
+  // Populate blacklist textarea only if empty AND the "use default" checkbox is checked
+  if (!blacklistTA.value.trim() && useDefaultBlacklistCheckbox.checked) {
+    blacklistTA.value = DEFAULT_BLACKLIST.join('\n');
+  }
+}
+
+/* --- Import/Export settings --- */
+function loadSession() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = event => {
+      try {
+        const session = JSON.parse(event.target.result);
+        whitelistTA.value = session.whitelist || '';
+        blacklistTA.value = session.blacklist || '';
+        allowLinksCheckbox.checked = session.allowLinks || false;
+        alsoActsCheckbox.checked = session.alsoActs !== false;
+        alert('Session loaded successfully!');
+      } catch (err) { alert('Error loading session: ' + err.message); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function exportSettings() {
+  const settings = {
+    whitelist: whitelistTA.value,
+    blacklist: blacklistTA.value,
+    allowLinks: allowLinksCheckbox.checked,
+    alsoActs: alsoActsCheckbox.checked,
+    processMarkdown: processMarkdownCheckbox.checked,
+    actsUseSpan: actsUseSpanCheckbox.checked,
+    useDefaultBlacklist: useDefaultBlacklistCheckbox.checked,
+    replacementTag: document.querySelector('input[name="replacementTag"]:checked').value,
+    customTag: document.getElementById('customTag').value,
+    actSensitivity: document.getElementById('actSensitivity').value,
+    strictSpecies: document.getElementById('strictSpecies')?.checked,
+    exportDate: new Date().toISOString()
+  };
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(settings, null, 2));
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.setAttribute("href", dataStr);
+  downloadAnchor.setAttribute("download", "italiciser-settings.json");
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
+}
+
+function importSettings() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = event => {
+      try {
+        const settings = JSON.parse(event.target.result);
+        whitelistTA.value = settings.whitelist || '';
+        blacklistTA.value = settings.blacklist || '';
+        allowLinksCheckbox.checked = settings.allowLinks || false;
+        alsoActsCheckbox.checked = settings.alsoActs !== false;
+        processMarkdownCheckbox.checked = settings.processMarkdown || false;
+        actsUseSpanCheckbox.checked = settings.actsUseSpan || false;
+        useDefaultBlacklistCheckbox.checked = settings.useDefaultBlacklist !== false;
+        if (settings.replacementTag) {
+          const radio = document.querySelector(`input[name="replacementTag"][value="${settings.replacementTag}"]`);
+          if (radio) radio.checked = true;
+        }
+        if (settings.customTag) document.getElementById('customTag').value = settings.customTag;
+        if (settings.actSensitivity) document.getElementById('actSensitivity').value = settings.actSensitivity;
+        if (settings.strictSpecies !== undefined) document.getElementById('strictSpecies').checked = settings.strictSpecies;
+        alert('Settings imported successfully!');
+      } catch (err) { alert('Error importing settings: ' + err.message); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function resetSettings() {
+  if (!confirm('Reset all settings to defaults?')) return;
+  whitelistTA.value = '';
+  blacklistTA.value = DEFAULT_BLACKLIST.join('\n');
+  allowLinksCheckbox.checked = false;
+  alsoActsCheckbox.checked = true;
+  processMarkdownCheckbox.checked = false;
+  actsUseSpanCheckbox.checked = false;
+  useDefaultBlacklistCheckbox.checked = true;
+  document.querySelector('input[name="replacementTag"][value="i"]').checked = true;
+  document.getElementById('customTag').value = '';
+  document.getElementById('actSensitivity').value = '4';
+  document.getElementById('strictSpecies').checked = true;
+}
+
+function clearAll() {
+  if (!confirm('Are you sure you want to clear all files and reset?')) return;
+  pendingFiles = [];
+  filesDiv.innerHTML = '';
+  updateGlobalStats();
+}
+
+function clearHistory() {
+  if (!confirm('Clear processing history?')) return;
+  processingHistory = [];
+  localStorage.setItem('italiciserHistory', JSON.stringify(processingHistory));
+  updateHistoryDisplay();
+}
+function exportHistory() {
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(processingHistory, null, 2));
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.setAttribute("href", dataStr);
+  downloadAnchor.setAttribute("download", "italiciser-history.json");
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
+}
+
+/* --- Batch process: apply all (acceptAll) --- */
+function batchProcessFiles() {
+  if (pendingFiles.length === 0) { alert('No files to process.'); return; }
+  if (!confirm(`Process all ${pendingFiles.length} files with current settings?`)) return;
+  let processedCount = 0;
+  pendingFiles.forEach(pending => {
+    if (pending.isMarkdown) {
+      downloadText('italicised_' + pending.file.name, pending.processedText);
+      processedCount++;
+    } else if (pending.replacements.length > 0) {
+      applyAndDownload(pending, true);
+      processedCount++;
+    } else {
+      downloadText('italicised_' + pending.file.name, pending.rawText);
+      processedCount++;
+    }
+  });
+  alert(`Successfully processed ${processedCount} files!`);
+}
+
+/* --- Keyboard shortcuts in modal --- */
+function handleKeyboardShortcuts(e) {
+  if (!previewModal.style.display || previewModal.style.display === 'none') return;
+  if (e.key === 'Escape') { closeModal(); e.preventDefault(); return; }
+  if (!currentPending) return;
+  switch(e.key) {
+    case 'ArrowLeft':
+      if (matchIndex > 0) showMatch(currentPending, matchIndex - 1);
+      e.preventDefault(); break;
+    case 'ArrowRight':
+      if (matchIndex < currentPending.replacements.length - 1) showMatch(currentPending, matchIndex + 1);
+      e.preventDefault(); break;
+    case 'a':
+    case 'A':
+      acceptCurrentMatch(); e.preventDefault(); break;
+    case 'r':
+    case 'R':
+      rejectCurrentMatch(); e.preventDefault(); break;
+    case 'z':
+    case 'Z':
+      if (e.ctrlKey || e.metaKey) { undoLastAction(); e.preventDefault(); }
+      break;
+  }
 }
 
 </script>
