@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Scientific Name Italiciser</title>
+
+<style>
+    body {
+        font-family: sans-serif;
+        background: #f5f5f5;
+        padding: 20px;
+    }
+    h1 {
+        text-align: centre;
+    }
+    #dropzone {
+        width: 100%;
+        padding: 60px;
+        border: 3px dashed #555;
+        border-radius: 12px;
+        background: #fff;
+        text-align: centre;
+        colour: #333;
+        font-size: 1.2rem;
+        cursor: pointer;
+    }
+    #output {
+        margin-top: 30px;
+    }
+    .file-item {
+        background: #fff;
+        padding: 10px;
+        margin: 8px 0;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,.1);
+    }
+    button {
+        padding: 8px 14px;
+        border: none;
+        background: #0066cc;
+        colour: #fff;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+</style>
+</head>
+
+<body>
+
+<h1>Scientific Name Italiciser</h1>
+
+<div id="dropzone">
+    Drag & drop HTML files here<br>
+    or click to select files
+</div>
+
+<input type="file" id="fileInput" accept=".html,.htm" multiple style="display:none">
+
+<div id="output"></div>
+
+<script>
+// VERY simple scientific-name matcher:
+// Capitalised word + lowercase word
+const sciNameRegex = /\b([A-Z][a-z]+)\s([a-z]{3,})\b/g;
+
+// Drop zone setup
+const dropzone = document.getElementById("dropzone");
+const fileInput = document.getElementById("fileInput");
+dropzone.addEventListener("click", () => fileInput.click());
+
+dropzone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropzone.style.background = "#eef";
+});
+dropzone.addEventListener("dragleave", () => {
+    dropzone.style.background = "#fff";
+});
+dropzone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropzone.style.background = "#fff";
+    handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener("change", () => handleFiles(fileInput.files));
+
+function handleFiles(files) {
+    [...files].forEach(processFile);
+}
+
+function processFile(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+        let original = reader.result;
+
+        // Avoid double-wrapping: remove any existing <i> around scientific names
+        let cleaned = original.replace(/<i>(.*?)<\/i>/g, "$1");
+
+        // Wrap scientific names
+        let updated = cleaned.replace(sciNameRegex, "<i>$1 $2</i>");
+
+        downloadUpdated(file.name, updated);
+
+        showResult(file.name);
+    };
+    reader.readAsText(file);
+}
+
+function downloadUpdated(filename, content) {
+    const blob = new Blob([content], {type: "text/html"});
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "italicised_" + filename;
+    link.click();
+}
+
+function showResult(name) {
+    const out = document.getElementById("output");
+    const div = document.createElement("div");
+    div.className = "file-item";
+    div.textContent = `Processed: ${name}`;
+    out.appendChild(div);
+}
+</script>
+
+</body>
+</html>
