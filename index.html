@@ -421,6 +421,27 @@ function indexTextNodes(doc) {
   return nodes;
 }
 
+/* --- Context snippet utility --- */
+function contextSnippet(text, start, end, contextLength = 30) {
+  // Get context around the match
+  const contextStart = Math.max(0, start - contextLength);
+  const contextEnd = Math.min(text.length, end + contextLength);
+  
+  let snippet = text.slice(contextStart, contextEnd);
+  
+  // Add ellipsis if we truncated the beginning
+  if (contextStart > 0) {
+    snippet = '...' + snippet;
+  }
+  
+  // Add ellipsis if we truncated the end
+  if (contextEnd < text.length) {
+    snippet = snippet + '...';
+  }
+  
+  return snippet;
+}
+
 /* --- File handling --- */
 
 function handleFiles(fileList){
